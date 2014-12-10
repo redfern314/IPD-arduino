@@ -1,6 +1,8 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_HMC5883_U.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SharpMem.h>
 
 // any pins can be used
 #define SCK 10
@@ -28,27 +30,53 @@ int care_dir_face = 50; // direction caregiver is facing, in degrees
 int care_alz_dir = 350; // NSEW direction caregiver needs to travel to reach patient
 int adj_care_alz_dir = 330; // angle from caregiver to patient, where 0 == direction caregiver is facing
 
-void drawAndRefresh() {
+void drawAndRefresh(int heading) {
   if (newData) {
     newData = 0;
 
     // draw text
     display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(BLACK);
-    display.setCursor(2,2);
-    display.println(alz_name);
-    display.setCursor(2,12);
-    display.println("has wandered to");
-    display.setCursor(2,22);
-    display.println(alz_add_1);
-    display.setCursor(2,32);
-    display.println(alz_add_2);
+    // display.setTextSize(1);
+    // display.setTextColor(BLACK);
+    // display.setCursor(2,2);
+    // display.println(alz_name);
+    // display.setCursor(2,12);
+    // display.println("has wandered to");
+    // display.setCursor(2,22);
+    // display.println(alz_add_1);
+    // display.setCursor(2,32);
+    // display.println(alz_add_2);
 
     // draw arrow
-    // TODO
+    drawArrow(heading);
   }
   display.refresh();
+}
+
+void drawArrow(int heading) {
+  #define arrowlength     20
+  #define arrowheadlength 10
+  #define arrowstartX     30
+  #define arrowstartY     60
+
+  int adj_care_alz_dir = heading;
+  dx = sin(adj_care_alz_dir*pi/180);
+  dy = cos(adj_care_alz_dir*pi/180);
+  float px1 = dx*arrowlength+arrowstartX;
+  float py1 = dy*arrowlength+arrowstartY;
+  display.drawLine(arrowstartX,arrowstartY,px1,py1,BLACK);
+
+  dx = sin((adj_care_alz_dir+150)*pi/180);
+  dy = cos((adj_care_alz_dir+150)*pi/180);
+  float px2 = dx*arrowheadlength+px1;
+  float py2 = dy*arrowheadlength+py1;
+  display.drawLine(px1,py1,px2,py2,BLACK);
+
+  dx = sin((adj_care_alz_dir+210)*pi/180);
+  dy = cos((adj_care_alz_dir+210)*pi/180);
+  px2 = dx*arrowheadlength+px1;
+  py2 = dy*arrowheadlength+py1;
+  display.drawLine(px1,py1,px2,py2,BLACK);
 }
 
 void setup(void) 
@@ -69,11 +97,6 @@ float getHeading() {
   /* Get a new sensor event */ 
   sensors_event_t event; 
   mag.getEvent(&event);
- 
-  /* Display the results (magnetic vector values are in micro-Tesla (uT)) */
-  Serial.print("X: "); Serial.print(event.magnetic.x); Serial.print("  ");
-  Serial.print("Y: "); Serial.print(event.magnetic.y); Serial.print("  ");
-  Serial.print("Z: "); Serial.print(event.magnetic.z); Serial.print("  ");Serial.println("uT");
 
   // Hold the module so that Z is pointing 'up' and you can measure the heading with x&y
   // Calculate heading when the magnetometer is level, then correct for signs of axis.
@@ -95,7 +118,7 @@ float getHeading() {
     heading -= 2*PI;
    
   // Convert radians to degrees for readability.
-  float headingDegrees = heading * 180/M_PI; 
+  float headingDegrees = heading * 180/M_PI;
   
   return(headingDegrees);
 }
@@ -103,45 +126,46 @@ float getHeading() {
 void loop(void) 
 {
   // clear GPS serial buffer to get new data
-  while(Serial1.available()) {
-    Serial1.readln();
-  }
-  delay(10);
+  // while(Serial1.available()) {
+  //   Serial1.readln();
+  // }
+  // delay(10);
 
-  // get GPS location
-  char GPS[100];
-  while (Serial1.available()) {
-    char incoming[100];
-    Serial1.readBytesUntil('\n',incoming,100);
-    if(strncmp(incoming,"$GPRMC",6)==0) {
-      strcpy(GPS,incoming);
-      break;
-    }
-  }
+  // // get GPS location
+  // char GPS[100];
+  // while (Serial1.available()) {
+  //   char incoming[100];
+  //   Serial1.readBytesUntil('\n',incoming,100);
+  //   if(strncmp(incoming,"$GPRMC",6)==0) {
+  //     strcpy(GPS,incoming);
+  //     break;
+  //   }
+  // }
 
   // get magnetic heading
   int heading = (int)getHeading();
 
   // send location and heading to server
-  Serial.print("Heading,")
-  Serial.println(heading);
-  Serial.print("GPS,");
-  Serial.println(GPS);
+  // Serial.print("Heading,")
+  // Serial.println(heading);
+  // Serial.print("GPS,");
+  // Serial.println(GPS);
 
-  // wait for the server to send back data, then read it
-  while(!Serial.available()) {}
-  char address[100];
-  char reldir[4];
+  // // wait for the server to send back data, then read it
+  // while(!Serial.available()) {}
+  // char address[100];
+  // char reldir[4];
 
-  // read address
-  int bytes = Serial.readBytesUntil('|',address,100);
-  address[bytes] = '\0'; // remove the trailing | character
+  // // read address
+  // int bytes = Serial.readBytesUntil('|',address,100);
+  // address[bytes] = '\0'; // remove the trailing | character
 
-  // read direction
-  bytes = Serial.readBytes(reldir,3); // TODO: make sure we're sending 3 bytes
+  // // read direction
+  // bytes = Serial.readBytes(reldir,3); // TODO: make sure we're sending 3 bytes
 
   // update and refresh screen
-  // TODO
+  newData = 1;
+  drawAndRefresh(heading);
 
   // wait 500ms and repeat
   delay(500);
